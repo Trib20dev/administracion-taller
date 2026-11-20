@@ -1,0 +1,16 @@
+# PyCharm
+.idea/
+
+# Python
+__pycache__/
+
+# Entorno virtual
+.venv/
+.venv_clase/
+.venv_casa/
+
+#Fichero variables
+.env
+
+#Elementos de persistencia
+/datos/
