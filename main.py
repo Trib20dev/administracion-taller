@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from src.vista.ui_ventana import MiVentanaPrincipal
+from cliente.vista import MiVentanaPrincipal
 
 
 def main():

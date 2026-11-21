@@ -3,7 +3,8 @@ import uuid
 from pathlib import Path
 from uuid import UUID
 from typing import override, Literal
-from src import persistencia
+from servidor import persistencia
+
 
 class PersonaNoExisteError(Exception):
     pass
@@ -272,7 +273,7 @@ class Taller:
                 str(reparacion.id): reparacion.to_dict() for reparacion in self.reparaciones.values()
             }
         }
-        persistencia.guardar_datos(self.nombre,datos)
+        persistencia.guardar_datos(self.nombre, datos)
 
     def alta_cliente(self,nombre:str,email:str,numero:str):
         """

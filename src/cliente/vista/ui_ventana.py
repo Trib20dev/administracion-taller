@@ -1,5 +1,4 @@
 import copy
-from typing import Literal
 from uuid import UUID
 
 import PySide6
@@ -8,9 +7,9 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QDoubleValidator
 from PySide6.QtWidgets import QMainWindow, QWidget, QHeaderView, QMessageBox, QAbstractItemView, \
     QTableView, QFileDialog
 
-from src import persistencia
+from servidor import persistencia
 from src.modelos import Cliente, Tecnico, Reparacion, PersonaDuplicadaError, PersonaNoExisteError
-from src.vista.Ventana import Ui_MainWindow
+from cliente.vista.Ventana import Ui_MainWindow
 
 
 class MiVentanaPrincipal(QMainWindow):
