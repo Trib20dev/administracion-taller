@@ -17,22 +17,13 @@ class Persona:
     En la creacion de una persona su ID autogenerado se guarda en el listado estatico
     Y los nombre se guardan en lowercase
     """
-    _ids: list[UUID] = []
     def __init__(self, nombre:str, uid: UUID | None = None):
         self._id = uid if uid is not None else uuid.uuid4()
-        if self._id in Persona._ids:
-            raise PersonaDuplicadaError('ID duplicado')
-        Persona._ids.append(self._id)
-        self._ids.append(self._id)
         self.nombre = nombre.lower()
 
     @property
     def id(self):
         return self._id
-
-    @classmethod
-    def exists(cls, person_id: UUID) -> bool:
-        return person_id in cls._ids
 
     def info(self) -> None:
         print(f'{self.nombre}')
@@ -47,6 +38,11 @@ class Cliente(Persona):
         super().__init__(nombre, uid=uid)
         self.email = email
         self.numero = numero
+
+    @classmethod
+    def from_dict(cls, key:str, value:dict) -> Cliente:
+        return cls(uid=UUID(key), **value)
+
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value,Cliente):
@@ -74,6 +70,10 @@ class Tecnico(Persona):
         super().__init__(nombre,uid=uid)
         self.especialidad = especialidad
 
+    @classmethod
+    def from_dict(cls, key: str, value: dict) -> Tecnico:
+        return cls(uid=UUID(key), **value)
+
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value,Tecnico):
             return False
@@ -90,21 +90,20 @@ class Tecnico(Persona):
         return datos
 
 class Reparacion:
-    _ids: list = []
     def __init__(self, cliente:UUID, equipo:str, descripcion:str, coste:float, tecnico:UUID | None = None, estado:str | None = 'pendiente',uid: UUID | None = None):
-        if not Cliente.exists(cliente):
-            raise PersonaNoExisteError('Cliente no existe')
         self._id = uid if uid is not None else uuid.uuid4()
         self.cliente = cliente
         self.equipo = equipo
         self.descripcion = descripcion
-        if tecnico is not None and not Tecnico.exists(tecnico):
-            raise PersonaNoExisteError('Tecnico no existe')
         self.tecnico = None if tecnico is None else tecnico
         self.estado = estado
         if coste < 0:
             raise ValueError('Coste negativo no valido')
         self.coste = coste
+
+    @classmethod
+    def from_dict(cls, key: str, value: dict) -> Reparacion:
+        return cls(uid=UUID(key), **value)
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value,Reparacion):
@@ -211,70 +210,6 @@ class Taller:
             reparacion.id: reparacion
         })
 
-    @classmethod
-    def importar(cls, nombre:str, ruta:Path):
-        taller = Taller(nombre)
-        with open(ruta, "r", encoding="utf-8") as json_file:
-            elementos = json.load(json_file)
-
-        Persona._ids.clear()
-        Reparacion._ids.clear()
-
-        clientes = {}
-        tecnicos = {}
-        reparaciones = {}
-
-        for uid, datos in elementos["clientes"].items():
-            cliente = Cliente(
-                datos["nombre"],
-                datos["email"],
-                datos["numero"],
-                uid=UUID(uid)
-            )
-            clientes[UUID(uid)] = cliente
-
-        taller._set_clientes(clientes)
-
-        for uid, datos in elementos["tecnicos"].items():
-            tecnico = Tecnico(
-                nombre=datos["nombre"],
-                especialidad=datos["especialidad"],
-                uid=UUID(uid)
-            )
-            tecnicos[UUID(uid)] = tecnico
-
-        taller._set_tecnicos(tecnicos)
-
-        for uid, datos in elementos["reparaciones"].items():
-            reparacion = Reparacion(
-                cliente=UUID(datos["cliente"]),
-                equipo=datos["equipo"],
-                descripcion=datos["descripcion"],
-                tecnico=UUID(datos["tecnico"]) if datos["tecnico"] != 'None' else None,
-                estado=datos["estado"],
-                coste=datos["coste"],
-                uid=UUID(uid)
-            )
-            reparaciones[UUID(uid)] = reparacion
-
-        taller._set_reparaciones(reparaciones)
-
-        return taller
-
-    def exportar(self):
-        datos = {
-            "clientes": {
-                str(cliente.id): cliente.to_dict() for cliente in self.clientes.values()
-            },
-            "tecnicos": {
-                str(tecnico.id): tecnico.to_dict() for tecnico in self.tecnicos.values()
-            },
-            "reparaciones": {
-                str(reparacion.id): reparacion.to_dict() for reparacion in self.reparaciones.values()
-            }
-        }
-        persistencia.guardar_datos(self.nombre, datos)
-
     def alta_cliente(self,nombre:str,email:str,numero:str):
         """
             Funcion encargada de pedir los datos para dar de
@@ -290,7 +225,7 @@ class Taller:
         # for cliente in self.clientes.values():
         #     cliente.info()
 
-    def alta_tecnico(self,nombre:str,especialidad:str):
+    def alta_tecnico(self,nombre:str,especialidad:Literal["software", "hardware"]):
         """
             Funcion encargada de pedir los datos para dar de
             alta a un tecnico.
