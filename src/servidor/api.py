@@ -5,6 +5,8 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+
 @app.get("/")
 def read_root():
     return None
+

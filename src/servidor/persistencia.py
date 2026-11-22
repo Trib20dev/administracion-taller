@@ -1,64 +1,105 @@
 import json
+import uuid
 from pathlib import Path
+from typing import Type, TypeVar
 from uuid import UUID
 
-from modelos import Reparacion, Tecnico, Cliente, Persona
-from src.modelos import Taller
+import bcrypt
+
+from modelos import Reparacion, Tecnico, Cliente
+
+T = TypeVar("T", Cliente, Tecnico, Reparacion)
+
+# Resuelve siempre a la carpeta 'datos/' en la raíz del proyecto, sin importar desde dónde ejecutes
+BASE_DATOS = Path(__file__).resolve().parents[2] / "datos"
 
 
-class Persistencia:
+class GestorTaller:
+
+    def __init__(self):
+        self.ruta = BASE_DATOS / "talleres.json"
+        self.ruta.parent.mkdir(parents=True, exist_ok=True)
+
+    def crear_taller(self, nombre: str, contrasena: str):
+        talleres = {}
+        if self.ruta.exists():
+            with open(self.ruta, "r", encoding="utf-8") as json_file:
+                talleres = json.load(json_file)
+
+        if nombre in talleres:
+            raise ValueError("El taller ya existe")
+
+        id_taller = str(uuid.uuid4())
+        talleres[nombre] = {
+            "id": id_taller,
+            "nombre": nombre,
+            "contrasena": bcrypt.hashpw(contrasena.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        }
+
+        (BASE_DATOS / id_taller).mkdir(parents=True, exist_ok=True)
+        with open(self.ruta, "w", encoding="utf-8") as json_file:
+            json.dump(talleres, json_file, indent=4, ensure_ascii=False)
+
+        db = PersistenciaTaller(nombre)
+        db.guardar_clientes({})
+        db.guardar_tecnicos({})
+        db.guardar_reparaciones({})
+
+    def validar_taller(self, nombre: str, contrasena: str) -> bool:
+        if not self.ruta.exists():
+            return False
+
+        with open(self.ruta, "r", encoding="utf-8") as json_file:
+            talleres = json.load(json_file)
+
+        taller = talleres.get(nombre)
+        if taller is None:
+            return False
+
+        contrasena_hasheada = taller["contrasena"]
+        return bcrypt.checkpw(contrasena.encode("utf-8"), contrasena_hasheada.encode("utf-8"))
+
+
+class PersistenciaTaller:
 
     def __init__(self, nombre: str) -> None:
-        self.taller = Path('./datos/'+nombre)
-        self.taller.mkdir(parents = True, exist_ok = True)
+        with open(BASE_DATOS / "talleres.json", "r", encoding="utf-8") as json_file:
+            talleres = json.load(json_file)
+        self.id = talleres[nombre]["id"]
+        self.taller = BASE_DATOS / self.id
 
-    def guadar_clientes(self, datos: dict[UUID,Cliente]):
-        ruta = self.taller / "clientes.json"
-        with open(ruta, 'w', encoding="utf-8") as json_file:
-            json.dump({'clientes': {str(cliente.id): cliente.to_dict() for cliente in datos.values()}},
-                      json_file,
-                      indent = 4,
-                      ensure_ascii = False)
+    def _guardar(self, nombre_fichero: str, datos: dict):
+        ruta = self.taller / nombre_fichero
+        with open(ruta, "w", encoding="utf-8") as json_file:
+            json.dump(
+                {str(uid): objeto.to_dict() for uid, objeto in datos.items()},
+                json_file,
+                indent=4,
+                ensure_ascii=False
+            )
 
-    def guadar_tecnicos(self, datos: dict[UUID,Tecnico]):
-        ruta = self.taller / "tecnicos.json"
-        with open(ruta, 'w', encoding="utf-8") as json_file:
-            json.dump({'tecnicos': {str(tecnico.id): tecnico.to_dict() for tecnico in datos.values()}},
-                      json_file,
-                      indent=4,
-                      ensure_ascii=False)
-
-    def guadar_reparaciones(self, datos: dict[UUID,Reparacion]):
-        ruta = self.taller / "reparaciones.json"
-        with open(ruta, 'w', encoding="utf-8") as json_file:
-            json.dump({'reparaciones': {str(reparacion.id): reparacion.to_dict() for reparacion in datos.values()}},
-                      json_file,
-                      indent=4,
-                      ensure_ascii=False)
-
-    def cargar_clientes(self) -> dict[UUID,Cliente]:
-        ruta = self.taller / "clientes.json"
+    def _cargar(self, nombre_fichero: str, clase: Type[T]) -> dict[UUID, T]:
+        ruta = self.taller / nombre_fichero
         if not ruta.exists():
             return {}
-        with open(ruta, 'r', encoding="utf-8") as json_file:
+        with open(ruta, "r", encoding="utf-8") as json_file:
             datos = json.load(json_file)
-        clientes = {uuid: Cliente.from_dict(uuid,cliente) for uuid, cliente in datos.items()}
-        return clientes
+        return {UUID(uid_str): clase.from_dict(uid_str, item) for uid_str, item in datos.items()}
 
-    def cargar_tecnicos(self) -> dict[UUID,Tecnico]:
-        ruta = self.taller / "tecnicos.json"
-        if not ruta.exists():
-            return {}
-        with open(ruta, 'r', encoding="utf-8") as json_file:
-            datos = json.load(json_file)
-        tecnicos = {uuid: Tecnico.from_dict(uuid,tecnico) for uuid, tecnico in datos.items()}
-        return tecnicos
+    def guardar_clientes(self, datos: dict[UUID, Cliente]):
+        self._guardar("clientes.json", datos)
 
-    def cargar_reparaciones(self) -> dict[UUID,Reparacion]:
-        ruta = self.taller / "reparaciones.json"
-        if not ruta.exists():
-            return {}
-        with open(ruta, 'r', encoding="utf-8") as json_file:
-            datos = json.load(json_file)
-        reparaciones = {uuid: Reparacion.from_dict(uuid,reparacion) for uuid, reparacion in datos.items()}
-        return reparaciones
+    def guardar_tecnicos(self, datos: dict[UUID, Tecnico]):
+        self._guardar("tecnicos.json", datos)
+
+    def guardar_reparaciones(self, datos: dict[UUID, Reparacion]):
+        self._guardar("reparaciones.json", datos)
+
+    def cargar_clientes(self) -> dict[UUID, Cliente]:
+        return self._cargar("clientes.json", Cliente)
+
+    def cargar_tecnicos(self) -> dict[UUID, Tecnico]:
+        return self._cargar("tecnicos.json", Tecnico)
+
+    def cargar_reparaciones(self) -> dict[UUID, Reparacion]:
+        return self._cargar("reparaciones.json", Reparacion)
