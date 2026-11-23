@@ -2,7 +2,7 @@ import json
 import uuid
 from pathlib import Path
 from uuid import UUID
-from typing import override, Literal
+from typing import override, Literal, Self
 from servidor import persistencia
 
 
@@ -40,7 +40,7 @@ class Cliente(Persona):
         self.numero = numero
 
     @classmethod
-    def from_dict(cls, key:str, value:dict) -> Cliente:
+    def from_dict(cls, key:str, value:dict) -> Self:
         return cls(uid=UUID(key), **value)
 
 
@@ -71,7 +71,7 @@ class Tecnico(Persona):
         self.especialidad = especialidad
 
     @classmethod
-    def from_dict(cls, key: str, value: dict) -> Tecnico:
+    def from_dict(cls, key: str, value: dict) -> Self:
         return cls(uid=UUID(key), **value)
 
     def __eq__(self, value: object, /) -> bool:
@@ -102,7 +102,7 @@ class Reparacion:
         self.coste = coste
 
     @classmethod
-    def from_dict(cls, key: str, value: dict) -> Reparacion:
+    def from_dict(cls, key: str, value: dict) -> Self:
         return cls(uid=UUID(key), **value)
 
     def __eq__(self, value: object, /) -> bool:
