@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -23,7 +24,7 @@ class TokenResponse(BaseModel):
 # Lo que manda el cliente en POST /clientes o PUT /clientes/{id}
 class ClienteCreate(BaseModel):
     nombre: str = Field(..., min_length=1)
-    telefono: str
+    numero: str
     email: str
 
 # Lo que responde el servidor en GET /clientes (hereda los campos de arriba y suma el id)
@@ -37,9 +38,7 @@ class ClienteOut(ClienteCreate):
 
 class TecnicoCreate(BaseModel):
     nombre: str = Field(..., min_length=1)
-    telefono: str
-    email: str
-    especialidad: str
+    especialidad: Literal["software", "hardware"]
 
 class TecnicoOut(TecnicoCreate):
     id: UUID
@@ -52,6 +51,7 @@ class TecnicoOut(TecnicoCreate):
 class ReparacionCreate(BaseModel):
     cliente_id: UUID
     tecnico_id: UUID
+    equipo: str
     descripcion: str = Field(..., min_length=1)
     coste: float = Field(..., ge=0)  # ge=0 impide costes negativos automáticamente
     estado: str = "Pendiente"

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QHeaderView, QMessageBox, QA
     QTableView, QFileDialog
 
 from servidor import persistencia
-from src.modelos import Cliente, Tecnico, Reparacion, PersonaDuplicadaError, PersonaNoExisteError
+from servidor.modelos import Cliente, Tecnico, Reparacion, PersonaDuplicadaError, PersonaNoExisteError
 from cliente.vista.Ventana import Ui_MainWindow
 
 

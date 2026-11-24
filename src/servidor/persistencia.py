@@ -6,7 +6,7 @@ from uuid import UUID
 
 import bcrypt
 
-from modelos import Reparacion, Tecnico, Cliente
+from servidor.modelos import Reparacion, Tecnico, Cliente
 
 T = TypeVar("T", Cliente, Tecnico, Reparacion)
 
