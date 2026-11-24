@@ -66,12 +66,12 @@ class Ui_Dialog(object):
 
         self.verticalLayout_2.addWidget(self.but_login_login)
 
-        self.widget = QWidget(self.login)
-        self.widget.setObjectName(u"widget")
-        self.widget.setEnabled(False)
-        self.verticalLayout_3 = QVBoxLayout(self.widget)
+        self.widget_login = QWidget(self.login)
+        self.widget_login.setObjectName(u"widget_login")
+        self.widget_login.setEnabled(False)
+        self.verticalLayout_3 = QVBoxLayout(self.widget_login)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
-        self.lab_login_error = QLabel(self.widget)
+        self.lab_login_error = QLabel(self.widget_login)
         self.lab_login_error.setObjectName(u"lab_login_error")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         sizePolicy.setHorizontalStretch(0)
@@ -83,7 +83,7 @@ class Ui_Dialog(object):
         self.verticalLayout_3.addWidget(self.lab_login_error)
 
 
-        self.verticalLayout_2.addWidget(self.widget)
+        self.verticalLayout_2.addWidget(self.widget_login)
 
         self.verticalLayout_2.setStretch(0, 1)
         self.tabWidget.addTab(self.login, "")
@@ -122,18 +122,18 @@ class Ui_Dialog(object):
 
         self.verticalLayout_4.addWidget(self.but_register_register)
 
-        self.widget_2 = QWidget(self.register)
-        self.widget_2.setObjectName(u"widget_2")
-        self.verticalLayout_5 = QVBoxLayout(self.widget_2)
+        self.widget_register = QWidget(self.register)
+        self.widget_register.setObjectName(u"widget_register")
+        self.verticalLayout_5 = QVBoxLayout(self.widget_register)
         self.verticalLayout_5.setObjectName(u"verticalLayout_5")
-        self.lab_register_error = QLabel(self.widget_2)
+        self.lab_register_error = QLabel(self.widget_register)
         self.lab_register_error.setObjectName(u"lab_register_error")
         self.lab_register_error.setStyleSheet(u"color: rgb(255, 0, 0);")
 
         self.verticalLayout_5.addWidget(self.lab_register_error)
 
 
-        self.verticalLayout_4.addWidget(self.widget_2)
+        self.verticalLayout_4.addWidget(self.widget_register)
 
         self.verticalLayout_4.setStretch(0, 1)
         self.tabWidget.addTab(self.register, "")
@@ -143,7 +143,7 @@ class Ui_Dialog(object):
 
         self.retranslateUi(Dialog)
 
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(Dialog)
