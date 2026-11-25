@@ -6,7 +6,7 @@ services:
     container_name: api-taller
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8095"
+      - "127.0.0.1:8095:8000"
     environment:
       - SECRET_KEY=${SECRET_KEY}
     volumes:
