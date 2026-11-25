@@ -92,10 +92,13 @@ class Tecnico(Persona):
 class Reparacion:
     def __init__(self, cliente:UUID, equipo:str, descripcion:str, coste:float, tecnico:UUID | None = None, estado:str | None = 'pendiente',uid: UUID | None = None):
         self._id = uid if uid is not None else uuid.uuid4()
-        self.cliente = cliente
+        self.cliente = cliente if isinstance(cliente, UUID) else UUID(str(cliente))
         self.equipo = equipo
         self.descripcion = descripcion
-        self.tecnico = None if tecnico is None else tecnico
+        self.tecnico = (
+            None if tecnico is None
+            else (tecnico if isinstance(tecnico, UUID) else UUID(str(tecnico)))
+        )
         self.estado = estado
         if coste < 0:
             raise ValueError('Coste negativo no valido')
@@ -127,8 +130,7 @@ class Reparacion:
             "cliente": str(self.cliente),
             "equipo": self.equipo,
             "descripcion": self.descripcion,
-            "tecnico": str(self.tecnico),
-            "estado": self.estado,
+            "tecnico": str(self.tecnico) if self.tecnico is not None else None,            "estado": self.estado,
             "coste": self.coste
         }
 

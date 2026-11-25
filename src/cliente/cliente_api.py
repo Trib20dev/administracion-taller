@@ -3,7 +3,10 @@ from uuid import UUID
 import requests
 from compartido.esquemas import ClienteCreate, ClienteOut, TallerAuth, TecnicoOut, TecnicoCreate, ReparacionOut, \
     ReparacionCreate
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class ErrorAPI(Exception):
     """Excepción propia para que la ventana muestre un QMessageBox limpio."""
@@ -11,8 +14,9 @@ class ErrorAPI(Exception):
 
 
 class ClienteAPI:
-    def __init__(self, url_base: str = "http://127.0.0.1:8000"):
-        self.url_base = url_base
+    def __init__(self):
+        self.url_base = os.getenv("API_URL", "http://127.0.0.1:8000")
+        self.nombre_taller: str | None = None
         self._token: str | None = None
 
     @property
@@ -43,6 +47,7 @@ class ClienteAPI:
         res = requests.post(f"{self.url_base}/login", json=datos.model_dump())
         data = self._manejar_respuesta(res)
         self._token = data["access_token"]
+        self.nombre_taller = nombre
 
     def registrar_taller(self, nombre: str, contrasena: str) -> None:
         datos = TallerAuth(nombre=nombre, contrasena=contrasena)
@@ -51,12 +56,16 @@ class ClienteAPI:
 
     def cerrar_sesion(self) -> None:
         self._token = None
+        self.nombre_taller = None
 
     # --- Clientes ---
     def listar_clientes(self) -> list[ClienteOut]:
         res = requests.get(f"{self.url_base}/clientes", headers=self._headers)
         data = self._manejar_respuesta(res)
         return [ClienteOut(**item) for item in data]
+
+    def listar_clientes_dict(self) -> dict[UUID, ClienteOut]:
+        return {c.id: c for c in self.listar_clientes()}
 
     def crear_cliente(self, cliente: ClienteCreate) -> ClienteOut:
         res = requests.post(
@@ -86,6 +95,9 @@ class ClienteAPI:
         data = self._manejar_respuesta(res)
         return [TecnicoOut(**item) for item in data]
 
+    def listar_tecnicos_dict(self) -> dict[UUID, TecnicoOut]:
+        return {c.id: c for c in self.listar_tecnicos()}
+
     def crear_tecnico(self, tecnico: TecnicoCreate) -> TecnicoOut:
         res = requests.post(
             f"{self.url_base}/tecnicos",
@@ -113,6 +125,9 @@ class ClienteAPI:
         res = requests.get(f"{self.url_base}/reparaciones", headers=self._headers)
         data = self._manejar_respuesta(res)
         return [ReparacionOut(**item) for item in data]
+
+    def listar_reparaciones_dict(self) -> dict[UUID, ReparacionOut]:
+        return {c.id: c for c in self.listar_reparaciones()}
 
     def crear_reparacion(self, reparacion: ReparacionCreate) -> ReparacionOut:
         res = requests.post(

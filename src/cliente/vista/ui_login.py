@@ -4,7 +4,7 @@ from cliente.cliente_api import ClienteAPI, ErrorAPI
 from cliente.vista.login_register import Ui_Dialog
 
 
-class VentanaLogin(QDialog):
+class DialogoLogin (QDialog):
     def __init__(self, api: ClienteAPI):
         super().__init__()
 
@@ -19,20 +19,20 @@ class VentanaLogin(QDialog):
         self.ui.widget_register.hide()
 
     def check_login(self):
-        condicion = self.ui.line_login_nombre.text() != "" and self.ui.line_login_password.text() != ""
+        condicion = self.ui.line_login_nombre.text() != "" and len(self.ui.line_login_password.text()) > 4
         self.ui.but_login_login.setEnabled(condicion)
 
     def check_register(self):
-        condicion = self.ui.line_register_nombre.text() != "" and self.ui.line_register_password.text() != ""
+        condicion = self.ui.line_register_nombre.text() != "" and len(self.ui.line_register_password.text()) > 4
         self.ui.but_register_register.setEnabled(condicion)
 
     def login(self):
         try:
-            self.api.login(self.ui.but_login_login.text(), self.ui.but_register_register.text())
+            self.api.login(self.ui.line_login_nombre.text(), self.ui.line_login_password.text())
             self.accept()
         except ErrorAPI as e:
             self.ui.widget_login.setVisible(True)
-            self.ui.widget_login.setText(str(e))
+            self.ui.lab_login_error.setText(str(e))
 
     def register(self):
         try:
@@ -40,8 +40,8 @@ class VentanaLogin(QDialog):
             self.api.login(self.ui.line_register_nombre.text(), self.ui.line_register_password.text())
             self.accept()
         except ErrorAPI as e:
-            self.ui.widget_login.setVisible(True)
-            self.ui.widget_login.setText(str(e))
+            self.ui.widget_register.setVisible(True)
+            self.ui.lab_register_error.setText(str(e))
 
     def connect_events(self):
         #Login

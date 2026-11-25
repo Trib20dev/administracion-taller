@@ -49,8 +49,8 @@ class TecnicoOut(TecnicoCreate):
 # ==========================================
 
 class ReparacionCreate(BaseModel):
-    cliente_id: UUID
-    tecnico_id: UUID
+    cliente: UUID
+    tecnico: UUID | None = None
     equipo: str
     descripcion: str = Field(..., min_length=1)
     coste: float = Field(..., ge=0)  # ge=0 impide costes negativos automáticamente
@@ -58,4 +58,6 @@ class ReparacionCreate(BaseModel):
 
 class ReparacionOut(ReparacionCreate):
     id: UUID
-    fecha: datetime
+
+    def get_with_iva(self) -> float:
+        return self.coste * 1.21

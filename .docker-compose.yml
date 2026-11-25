@@ -1,0 +1,16 @@
+services:
+  taller-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-taller
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - taller_datos:/app/datos
+
+volumes:
+  taller_datos:

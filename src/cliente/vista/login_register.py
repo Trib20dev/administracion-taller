@@ -30,7 +30,7 @@ class Ui_Dialog(object):
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.tabWidget = QTabWidget(Dialog)
         self.tabWidget.setObjectName(u"tabWidget")
-        self.tabWidget.setEnabled(False)
+        self.tabWidget.setEnabled(True)
         self.login = QWidget()
         self.login.setObjectName(u"login")
         self.verticalLayout_2 = QVBoxLayout(self.login)
@@ -63,6 +63,7 @@ class Ui_Dialog(object):
 
         self.but_login_login = QPushButton(self.login)
         self.but_login_login.setObjectName(u"but_login_login")
+        self.but_login_login.setEnabled(False)
 
         self.verticalLayout_2.addWidget(self.but_login_login)
 
@@ -110,6 +111,7 @@ class Ui_Dialog(object):
 
         self.line_register_password = QLineEdit(self.register)
         self.line_register_password.setObjectName(u"line_register_password")
+        self.line_register_password.setEchoMode(QLineEdit.EchoMode.Password)
 
         self.formLayout_2.setWidget(1, QFormLayout.ItemRole.FieldRole, self.line_register_password)
 
@@ -143,7 +145,7 @@ class Ui_Dialog(object):
 
         self.retranslateUi(Dialog)
 
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(Dialog)

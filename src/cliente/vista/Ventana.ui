@@ -1265,8 +1265,8 @@
      <string>Fichero</string>
     </property>
     <addaction name="action_estadisticas"/>
-    <addaction name="action_guardar"/>
-    <addaction name="action_abrir_tienda"/>
+    <addaction name="action_import"/>
+    <addaction name="action_export"/>
     <addaction name="action_salir"/>
    </widget>
    <widget class="QMenu" name="menuAdministrar_clientes">
@@ -1371,6 +1371,21 @@
   <action name="action_estadisticas">
    <property name="text">
     <string>Estadísticas</string>
+   </property>
+  </action>
+  <action name="action_cerrar_sesion">
+   <property name="text">
+    <string>Cerrar sesion</string>
+   </property>
+  </action>
+  <action name="action_import">
+   <property name="text">
+    <string>Import from json</string>
+   </property>
+  </action>
+  <action name="action_export">
+   <property name="text">
+    <string>Export as json</string>
    </property>
   </action>
  </widget>

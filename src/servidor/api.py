@@ -57,10 +57,6 @@ def obtener_db(credenciales: HTTPAuthorizationCredentials = Depends(esquema_bear
 
 # -- ENDPOINTS --
 
-@app.get("/")
-def read_root():
-    raise HTTPException(status_code=404, detail="Ruta inexistente")
-
 # -  Autenticación y Registro de Talleres  -
 @app.post("/talleres", status_code=status.HTTP_201_CREATED)
 def registrar_taller(datos: TallerAuth):
@@ -111,15 +107,15 @@ def create_tecnico(datos: TecnicoCreate, db: PersistenciaTaller = Depends(obtene
 @app.post("/reparaciones", response_model=ReparacionOut, status_code=status.HTTP_201_CREATED)
 def create_reparacion(datos: ReparacionCreate, db: PersistenciaTaller = Depends(obtener_db)):
     # Verificamos integridad referencial antes de crear
-    if datos.cliente_id not in db.cargar_clientes():
+    if datos.cliente not in db.cargar_clientes():
         raise HTTPException(status_code=404, detail="El cliente asignado no existe")
-    if datos.tecnico_id not in db.cargar_tecnicos():
+    if datos.tecnico not in db.cargar_tecnicos():
         raise HTTPException(status_code=404, detail="El técnico asignado no existe")
 
     reparaciones = db.cargar_reparaciones()
     nueva_reparacion = Reparacion(
-        cliente=datos.cliente_id,
-        tecnico=datos.tecnico_id,
+        cliente=datos.cliente,
+        tecnico=datos.tecnico,
         equipo=datos.equipo,
         descripcion=datos.descripcion,
         coste=datos.coste,
@@ -147,114 +143,115 @@ def read_reparaciones(db: PersistenciaTaller = Depends(obtener_db)):
     return [ReparacionOut(id=uid, **reparacion.to_dict()) for uid, reparacion in reparaciones.items()]
 
 # -  Actualizar  -
-@app.put("/clientes/{cliente_id}", response_model=ClienteOut)
+@app.put("/clientes/{cliente}", response_model=ClienteOut)
 def update_cliente(
-    cliente_id: UUID,
+    cliente: UUID,
     datos: ClienteCreate,
     db: PersistenciaTaller = Depends(obtener_db)
     ):
     clientes = db.cargar_clientes()
-    if cliente_id not in clientes:
+    if cliente not in clientes:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    # Reconstruimos el cliente conservando su cliente_id original
+    # Reconstruimos el cliente conservando su cliente original
     cliente_actualizado = Cliente(
         nombre=datos.nombre,
         numero=datos.numero,
         email=datos.email,
-        uid=cliente_id
+        uid=cliente
     )
-    clientes[cliente_id] = cliente_actualizado
+    clientes[cliente] = cliente_actualizado
     db.guardar_clientes(clientes)
 
-    return ClienteOut(id=cliente_id, **cliente_actualizado.to_dict())
+    return ClienteOut(id=cliente, **cliente_actualizado.to_dict())
 
 
-@app.put("/tecnicos/{tecnico_id}", response_model=TecnicoOut)
+@app.put("/tecnicos/{tecnico}", response_model=TecnicoOut)
 def update_tecnico(
-    tecnico_id: UUID,
+    tecnico: UUID,
     datos: TecnicoCreate,
     db: PersistenciaTaller = Depends(obtener_db)
 ):
     tecnicos = db.cargar_tecnicos()
-    if tecnico_id not in tecnicos:
+    if tecnico not in tecnicos:
         raise HTTPException(status_code=404, detail="Técnico no encontrado")
 
     tecnico_actualizado = Tecnico(
         nombre=datos.nombre,
         especialidad=datos.especialidad,
-        uid=tecnico_id
+        uid=tecnico
     )
-    tecnicos[tecnico_id] = tecnico_actualizado
+    tecnicos[tecnico] = tecnico_actualizado
     db.guardar_tecnicos(tecnicos)
 
-    return TecnicoOut(id=tecnico_id, **tecnico_actualizado.to_dict())
+    return TecnicoOut(id=tecnico, **tecnico_actualizado.to_dict())
 
 
-@app.put("/reparaciones/{reparacion_id}", response_model=ReparacionOut)
+@app.put("/reparaciones/{reparacion}", response_model=ReparacionOut)
 def update_reparacion(
-    reparacion_id: UUID,
+    reparacion: UUID,
     datos: ReparacionCreate,
     db: PersistenciaTaller = Depends(obtener_db)
 ):
     reparaciones = db.cargar_reparaciones()
-    if reparacion_id not in reparaciones:
+    if reparacion not in reparaciones:
         raise HTTPException(status_code=404, detail="Reparación no encontrada")
 
     # Verificamos que el cliente y el técnico asignados sigan existiendo en el taller
-    if datos.cliente_id not in db.cargar_clientes():
+    if datos.cliente not in db.cargar_clientes():
         raise HTTPException(status_code=404, detail="El cliente asignado no existe")
-    if datos.tecnico_id not in db.cargar_tecnicos():
+    if datos.tecnico not in db.cargar_tecnicos():
         raise HTTPException(status_code=404, detail="El técnico asignado no existe")
 
     reparacion_actualizada = Reparacion(
-        cliente=datos.cliente_id,
-        tecnico=datos.tecnico_id,
+        cliente=datos.cliente,
+        tecnico=datos.tecnico,
         equipo=datos.equipo,
         descripcion=datos.descripcion,
         coste=datos.coste,
         estado=datos.estado,
-        uid=reparacion_id
+        uid=reparacion
     )
-    reparaciones[reparacion_id] = reparacion_actualizada
+    reparaciones[reparacion] = reparacion_actualizada
     db.guardar_reparaciones(reparaciones)
 
-    return ReparacionOut(id=reparacion_id, **reparacion_actualizada.to_dict())
+    return ReparacionOut(id=reparacion, **reparacion_actualizada.to_dict())
 
 # -  Eliminar  -
-@app.delete("/clientes/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_cliente(cliente_id: UUID, db: PersistenciaTaller = Depends(obtener_db)):
+@app.delete("/clientes/{cliente}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cliente(cliente: UUID, db: PersistenciaTaller = Depends(obtener_db)):
     clientes = db.cargar_clientes()
-    if cliente_id not in clientes:
+    if cliente not in clientes:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     reparaciones = db.cargar_reparaciones()
-    if any(r.cliente == cliente_id for r in reparaciones.values()):
+    if any(r.cliente == cliente for r in reparaciones.values()):
         raise HTTPException(status_code=400, detail="No se puede borrar: el cliente tiene reparaciones asignadas")
 
-    del clientes[cliente_id]
+    del clientes[cliente]
+
     db.guardar_clientes(clientes)
 
 
-@app.delete("/tecnicos/{tecnico_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_tecnico(tecnico_id: UUID, db: PersistenciaTaller = Depends(obtener_db)):
+@app.delete("/tecnicos/{tecnico}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_tecnico(tecnico: UUID, db: PersistenciaTaller = Depends(obtener_db)):
     tecnicos = db.cargar_tecnicos()
-    if tecnico_id not in tecnicos:
+    if tecnico not in tecnicos:
         raise HTTPException(status_code=404, detail="Técnico no encontrado")
 
     reparaciones = db.cargar_reparaciones()
-    if any(r.tecnico == tecnico_id for r in reparaciones.values()):
+    if any(r.tecnico == tecnico for r in reparaciones.values()):
         raise HTTPException(status_code=400, detail="No se puede borrar: el técnico tiene reparaciones asignadas")
 
-    del tecnicos[tecnico_id]
+    del tecnicos[tecnico]
     db.guardar_tecnicos(tecnicos)
 
 
-@app.delete("/reparaciones/{reparacion_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_reparacion(reparacion_id: UUID, db: PersistenciaTaller = Depends(obtener_db)):
+@app.delete("/reparaciones/{reparacion}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_reparacion(reparacion: UUID, db: PersistenciaTaller = Depends(obtener_db)):
     reparaciones = db.cargar_reparaciones()
-    if reparacion_id not in reparaciones:
+    if reparacion not in reparaciones:
         raise HTTPException(status_code=404, detail="Reparación no encontrada")
 
-    del reparaciones[reparacion_id]
+    del reparaciones[reparacion]
     db.guardar_reparaciones(reparaciones)

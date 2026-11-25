@@ -1,26 +1,23 @@
-import copy
-from uuid import UUID
-
-import PySide6
 from PySide6.QtCore import Qt, QLocale
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QDoubleValidator
 from PySide6.QtWidgets import QMainWindow, QWidget, QHeaderView, QMessageBox, QAbstractItemView, \
-    QTableView, QFileDialog
+    QTableView
 
-from servidor import persistencia
-from servidor.modelos import Cliente, Tecnico, Reparacion, PersonaDuplicadaError, PersonaNoExisteError
+from cliente.cliente_api import ClienteAPI, ErrorAPI
+from compartido.esquemas import ClienteOut, TecnicoOut, ReparacionOut, ClienteCreate, TecnicoCreate, ReparacionCreate
 from cliente.vista.Ventana import Ui_MainWindow
 
+def warning_box(parent,text):
+    QMessageBox.warning(parent,"Ocurrio un error",text, QMessageBox.StandardButton.Ok)
 
 class MiVentanaPrincipal(QMainWindow):
-    def __init__(self):
+    def __init__(self, api: ClienteAPI):
         super().__init__()
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-
-        self.taller = persistencia.cargar_taller('MI TALLER')
-        self.taller_guardado = copy.deepcopy(self.taller)
+        self.api = api
+        self.taller = self.api.nombre_taller
 
         self.ventana_actual = "page_tabla_reparaciones"
         self.ventana_previa = ""
@@ -32,10 +29,15 @@ class MiVentanaPrincipal(QMainWindow):
         self.ui.line_crear_reparacion_coste.setValidator(self.validador_coste)
         self.ui.line_update_reparacion_coste.setValidator(self.validador_coste)
 
+        #Objetos a descargar
+        self.clientes = self.api.listar_clientes_dict()
+        self.tecnicos = self.api.listar_tecnicos_dict()
+        self.reparaciones = self.api.listar_reparaciones_dict()
+
         #Para la operacion de eliminar y updatear
-        self.id_cliente: UUID | None = None
-        self.id_tecnico: UUID | None = None
-        self.id_reparacion: UUID | None = None
+        self.cliente: ClienteOut | None = None
+        self.tecnico: TecnicoOut | None = None
+        self.reparacion: ReparacionOut | None = None
 
         self.definir_tablas()
         self.rellenar_tablas()
@@ -43,20 +45,23 @@ class MiVentanaPrincipal(QMainWindow):
 
         self.establecer_ventana(ventana_objetivo="page_tabla_reparaciones",ventana_origen=self.ventana_actual)
 
+
+
+    """ Igual se reutiliza, pero en deshuso actual
     def guardado(self) -> bool:
-        """
+        '''
         Metodo empleado para comprobar si actualmente esta guardado el taller
         :return: True si esta guardado, False si no
-        """
+        '''
         return self.taller == self.taller_guardado
+    """
 
     def actualizar_titulo(self, nombre_pagina:str) -> None:
         """
         Construccion y establecimiento del titulo
         :param nombre_pagina:  El nombre de la pagina que debe mostrar, normalmente sera self.ventana_actual
         """
-        guardado = self.guardado()
-        titulo = f"{nombre_pagina.replace('page', '').replace('_', ' ').title()} - {self.taller.nombre}{"" if guardado else "*"}"
+        titulo = f"{nombre_pagina.replace('page', '').replace('_', ' ').title()} - {self.taller}"
         self.setWindowTitle(titulo)
 
     def conf_general_tabla(self,tabla:QTableView):
@@ -129,24 +134,24 @@ class MiVentanaPrincipal(QMainWindow):
     # -  FUNCIONES ENCARGADAS DE RELLENAR LAS TABLAS
 
     #   RELLENAR FILAS
-    def rellenar_fila_cliente(self,cliente: Cliente):
+    def rellenar_fila_cliente(self,cliente: ClienteOut):
         model = self.ui.table_clientes.model()
         nombre_con_id = QStandardItem(cliente.nombre)
         nombre_con_id.setData(cliente.id, Qt.ItemDataRole.UserRole)
         model.appendRow([nombre_con_id,QStandardItem(cliente.email),QStandardItem(cliente.numero)])
 
-    def rellenar_fila_tecnico(self, tecnico: Tecnico):
+    def rellenar_fila_tecnico(self, tecnico: TecnicoOut):
         model = self.ui.table_tecnicos.model()
         nombre_con_id = QStandardItem(tecnico.nombre)
         nombre_con_id.setData(tecnico.id, Qt.ItemDataRole.UserRole)
         model.appendRow([nombre_con_id,QStandardItem(tecnico.especialidad)])
 
-    def rellenar_fila_reparacion(self, reparacion: Reparacion):
+    def rellenar_fila_reparacion(self, reparacion: ReparacionOut):
         model = self.ui.table_reparacion.model()
-        nombre_con_id = QStandardItem(self.taller.clientes[reparacion.cliente].nombre)
+        nombre_con_id = QStandardItem(self.clientes[reparacion.cliente].nombre)
         nombre_con_id.setData(reparacion.id, Qt.ItemDataRole.UserRole)
         model.appendRow([nombre_con_id,
-                         QStandardItem(self.taller.tecnicos[reparacion.tecnico].nombre) if reparacion.tecnico is not None else QStandardItem(""),
+                         QStandardItem(self.tecnicos[reparacion.tecnico].nombre) if reparacion.tecnico is not None else QStandardItem(""),
                          QStandardItem(reparacion.equipo),
                          QStandardItem(reparacion.descripcion),
                          QStandardItem(reparacion.estado or ""),
@@ -160,7 +165,10 @@ class MiVentanaPrincipal(QMainWindow):
         nombre = self.ui.line_filter_cliente_nombre.text().strip().lower()
         model = self.ui.table_clientes.model()
         model.removeRows(0, model.rowCount())
-        for cliente in self.taller.clientes.values():
+
+        self.clientes = self.api.listar_clientes_dict()
+
+        for cliente in self.clientes.values():
             if nombre == "" or nombre.lower() in cliente.nombre:
                 self.rellenar_fila_cliente(cliente)
 
@@ -169,7 +177,10 @@ class MiVentanaPrincipal(QMainWindow):
         especialidad = self.ui.combo_filter_tecnico_especialidad.currentText().lower()
         model = self.ui.table_tecnicos.model()
         model.removeRows(0, model.rowCount())
-        for tecnico in self.taller.tecnicos.values():
+
+        self.tecnicos = self.api.listar_tecnicos_dict()
+
+        for tecnico in self.tecnicos.values():
             if (nombre == "" or nombre.lower() in tecnico.nombre) and \
                     (especialidad == "*" or tecnico.especialidad == especialidad.lower()):
                 self.rellenar_fila_tecnico(tecnico)
@@ -182,6 +193,11 @@ class MiVentanaPrincipal(QMainWindow):
         model = self.ui.table_reparacion.model()
         model.removeRows(0, model.rowCount())
 
+        # Redescarga de los datos
+        self.clientes = self.api.listar_clientes_dict()
+        self.tecnicos = self.api.listar_tecnicos_dict()
+        self.reparaciones = self.api.listar_reparaciones_dict()
+
         # Lógica ordenacion compacta
 
         campo = self.ui.combo_filter_reparacion_orden.currentText()
@@ -189,14 +205,14 @@ class MiVentanaPrincipal(QMainWindow):
 
         ordenaciones = {  # Relacion campo -> propiedad
             'Coste': lambda r: r.coste,
-            'Cliente': lambda r: self.taller.clientes[r.cliente].nombre,
-            'Tecnico': lambda r: self.taller.tecnicos[r.tecnico].nombre if r.tecnico is not None else "",
+            'Cliente': lambda r: self.clientes[r.cliente].nombre,
+            'Tecnico': lambda r: self.tecnicos[r.tecnico].nombre if r.tecnico is not None else "",
             'Estado': lambda r: r.estado,
         }
 
 
 
-        reparaciones = list(self.taller.reparaciones.values()) #Copia de la lista, para no modificar la original
+        reparaciones = list(self.reparaciones.values()) #Copia de la lista, para no modificar la original
 
         if campo == 'Fecha': #Si el campo es fecha y es pa abajo lo revierte
             if direccion == "Descendiente":
@@ -208,8 +224,8 @@ class MiVentanaPrincipal(QMainWindow):
             )
 
         for reparacion in reparaciones:
-            if (filtro_cliente == "" or filtro_cliente.lower() in self.taller.clientes[reparacion.cliente].nombre) and \
-                    (filtro_tecnico == "" or (reparacion.tecnico is not None and filtro_tecnico.lower() in self.taller.tecnicos[reparacion.tecnico].nombre)) and \
+            if (filtro_cliente == "" or filtro_cliente.lower() in self.clientes[reparacion.cliente].nombre) and \
+                    (filtro_tecnico == "" or (reparacion.tecnico is not None and filtro_tecnico.lower() in self.tecnicos[reparacion.tecnico].nombre)) and \
                     (filtro_estado == "*" or filtro_estado == reparacion.estado):
                 self.rellenar_fila_reparacion(reparacion)
 
@@ -268,12 +284,12 @@ class MiVentanaPrincipal(QMainWindow):
                 self.ui.line_update_cliente_email.clear()
                 self.ui.line_update_cliente_numero.clear()
                 self.set_cliente_enabled(False)
-                self.id_cliente = None
+                self.cliente = None
             case "page_actualizacion_tecnico":
                 self.ui.line_update_tecnico_nombre.clear()
                 self.ui.combo_update_tecnico_especialidad.setCurrentText("Software")
                 self.set_tecnico_enabled(False)
-                self.id_tecnico = None
+                self.tecnico = None
             case "page_actualizacion_reparacion":
                 self.ui.line_update_reparacion_cliente.clear()
                 self.ui.line_update_reparacion_tecnico.clear()
@@ -281,7 +297,7 @@ class MiVentanaPrincipal(QMainWindow):
                 self.ui.line_update_reparacion_descripcion.clear()
                 self.ui.line_update_reparacion_coste.clear()
                 self.set_reparacion_enabled(False)
-                self.id_reparacion = None
+                self.reparacion = None
             case "page_estadisticas": pass
             case _: print("Que estupidez me pediste que limpiase??")
 
@@ -335,14 +351,14 @@ class MiVentanaPrincipal(QMainWindow):
         self.ui.but_select_clientes.setEnabled(bool(self.ui.table_clientes.selectionModel().selectedRows()))
     def accion_select_cliente(self):
         id_cliente = self.ui.table_clientes.selectionModel().selectedRows()[0].data(Qt.ItemDataRole.UserRole)
-        cliente = self.taller.clientes[id_cliente]
+        cliente = self.clientes[id_cliente]
 
         if   self.ventana_previa == "page_crear_reparacion":
             self.ui.line_crear_reparacion_cliente.setText(cliente.nombre)
             self.ui.line_crear_reparacion_cliente.setProperty("UUID",cliente.id)
         elif self.ventana_previa == "page_actualizacion_cliente":
             self.set_cliente_enabled(True)
-            self.id_cliente = id_cliente
+            self.cliente = cliente
             self.ui.line_update_cliente_nombre.setText(cliente.nombre)
             self.ui.line_update_cliente_nombre.setProperty("UUID",cliente.id)
             self.ui.line_update_cliente_email.setText(cliente.email)
@@ -357,14 +373,14 @@ class MiVentanaPrincipal(QMainWindow):
         self.ui.but_select_tecnicos.setEnabled(bool(self.ui.table_tecnicos.selectionModel().selectedRows()))
     def accion_select_tecnico(self):
         id_tecnico = self.ui.table_tecnicos.selectionModel().selectedRows()[0].data(Qt.ItemDataRole.UserRole)
-        tecnico = self.taller.tecnicos[id_tecnico]
+        tecnico = self.tecnicos[id_tecnico]
 
         if self.ventana_previa == "page_crear_reparacion":
             self.ui.line_crear_reparacion_tecnico.setText(tecnico.nombre)
             self.ui.line_crear_reparacion_tecnico.setProperty("UUID",tecnico.id)
         elif self.ventana_previa == "page_actualizacion_tecnico":
             self.set_tecnico_enabled(True)
-            self.id_tecnico = id_tecnico
+            self.tecnico = tecnico
             self.ui.line_update_tecnico_nombre.setText(tecnico.nombre)
             self.ui.line_update_tecnico_nombre.setProperty("UUID", tecnico.id)
             self.ui.combo_update_tecnico_especialidad.setCurrentText(tecnico.especialidad.capitalize())
@@ -378,11 +394,11 @@ class MiVentanaPrincipal(QMainWindow):
     def accion_select_reparacion(self):
         self.set_reparacion_enabled(True)
         id_reparacion = self.ui.table_reparacion.selectionModel().selectedRows()[0].data(Qt.ItemDataRole.UserRole)
-        reparacion = self.taller.reparaciones[id_reparacion]
-        self.id_reparacion = id_reparacion
-        self.ui.line_update_reparacion_cliente.setText(self.taller.clientes[reparacion.cliente].nombre)
+        reparacion = self.reparaciones[id_reparacion]
+        self.reparacion = reparacion
+        self.ui.line_update_reparacion_cliente.setText(self.clientes[reparacion.cliente].nombre)
         self.ui.line_update_reparacion_cliente.setProperty("UUID",reparacion.cliente)
-        self.ui.line_update_reparacion_tecnico.setText(self.taller.tecnicos[reparacion.tecnico].nombre if reparacion.tecnico is not None else "")
+        self.ui.line_update_reparacion_tecnico.setText(self.tecnicos[reparacion.tecnico].nombre if reparacion.tecnico is not None else "")
         if reparacion.tecnico is not None:
             self.ui.line_update_reparacion_tecnico.setProperty("UUID",reparacion.tecnico)
         self.ui.combo_update_reparacion_estado.setCurrentText(reparacion.estado)
@@ -403,9 +419,9 @@ class MiVentanaPrincipal(QMainWindow):
         email =  self.ui.line_email_cliente.text().lower().strip()
         numero = self.ui.line_numero_cliente.text().lower().strip()
         try:
-            self.taller.alta_cliente(nombre=nombre,email=email,numero=numero)
-        except PersonaDuplicadaError:
-            QMessageBox.information(self, "No se creo el cliente","El cliente ya existe")
+            self.api.crear_cliente(ClienteCreate(nombre=nombre,email=email,numero=numero))
+        except ErrorAPI as e :
+            warning_box(self,str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_clientes()
         self.actualizar_titulo(self.ventana_actual)
@@ -419,9 +435,9 @@ class MiVentanaPrincipal(QMainWindow):
         nombre = self.ui.line_nombre_tecnico.text().lower().strip()
         especialidad =  self.ui.combo_especialidad.currentText().lower()
         try:
-            self.taller.alta_tecnico(nombre=nombre,especialidad=especialidad)
-        except PersonaDuplicadaError as e:
-            QMessageBox.information(self, "No se creo el técnico","El técnico ya existe")
+            self.api.crear_tecnico(TecnicoCreate(nombre=nombre,especialidad=especialidad))
+        except ErrorAPI as e:
+            warning_box(self,str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_tecnicos()
         self.actualizar_titulo(self.ventana_actual)
@@ -442,11 +458,9 @@ class MiVentanaPrincipal(QMainWindow):
         descripcion = self.ui.line_crear_reparacion_descripcion.text().lower().strip()
         coste = float(self.ui.line_crear_reparacion_coste.text().lower().strip())
         try:
-            self.taller.registrar_reparacion(cliente=cliente,tecnico=tecnico,equipo=equipo,descripcion=descripcion,coste=coste)
-        except PersonaNoExisteError as e:
-            QMessageBox.information(self,'No registro la reparación','Alguna de las personas no existe')
-        except ValueError as e:
-            QMessageBox.information(self,'No se puede registrar la reparacion', 'El coste no esta en un formato valido')
+            self.api.crear_reparacion(ReparacionCreate(cliente=cliente,tecnico=tecnico,equipo=equipo,descripcion=descripcion,coste=coste))
+        except ErrorAPI as e:
+            warning_box(self,str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_reparaciones()
         self.actualizar_titulo(self.ventana_actual)
@@ -454,50 +468,62 @@ class MiVentanaPrincipal(QMainWindow):
     # -- FUNCIONES DE ACTUALIZACION DE ELEMENTOS
     # - ACTUALIZACION DE CLIENTE
     def check_actualizacion_cliente(self):
-        condicion = ((self.ui.line_update_cliente_nombre.text() != self.taller.clientes[self.id_cliente].nombre and self.ui.line_update_cliente_nombre.text() != "")or
-                     (self.ui.line_update_cliente_email.text() != self.taller.clientes[self.id_cliente].email and self.ui.line_update_cliente_email.text().__contains__('@'))or
-                     self.ui.line_update_cliente_numero.text() != self.taller.clientes[self.id_cliente].numero
+        condicion = ((self.ui.line_update_cliente_nombre.text() != self.cliente.nombre and self.ui.line_update_cliente_nombre.text() != "")or
+                     (self.ui.line_update_cliente_email.text() != self.cliente.email and self.ui.line_update_cliente_email.text().__contains__('@'))or
+                     self.ui.line_update_cliente_numero.text() != self.cliente.numero
                      )
         self.ui.but_update_cliente_actualizar.setEnabled(condicion)
     def actualizar_cliente(self):
-        cliente = self.taller.clientes[self.id_cliente]
-        cliente.nombre = self.ui.line_update_cliente_nombre.text().lower()
-        cliente.email = self.ui.line_update_cliente_email.text().lower()
-        cliente.numero = self.ui.line_update_cliente_numero.text()
+        cli_id = self.cliente.id
+        nombre = self.ui.line_update_cliente_nombre.text().lower()
+        email = self.ui.line_update_cliente_email.text().lower()
+        numero = self.ui.line_update_cliente_numero.text()
+        try:
+            self.api.actualizar_cliente(cliente_id=cli_id, cliente=ClienteCreate(nombre=nombre,email=email,numero=numero))
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.check_actualizacion_cliente()
         self.rellenar_tabla_clientes()
     # - ACTUALIZACION DE TECNICO
     def check_actualizacion_tecnico(self):
         condicion = (
-            self.ui.line_update_tecnico_nombre.text() != self.taller.tecnicos[self.id_tecnico].nombre or
-            self.ui.combo_update_tecnico_especialidad.currentText().lower() != self.taller.tecnicos[self.id_tecnico].especialidad
+            self.ui.line_update_tecnico_nombre.text() != self.tecnico.nombre or
+            self.ui.combo_update_tecnico_especialidad.currentText().lower() != self.tecnico.especialidad
         )
         self.ui.but_update_tecnico_actualizar.setEnabled(condicion)
     def actualizar_tecnico(self):
-        tecnico = self.taller.tecnicos[self.id_tecnico]
-        tecnico.nombre = self.ui.line_update_tecnico_nombre.text().lower()
-        tecnico.especialidad = self.ui.combo_update_tecnico_especialidad.currentText().lower()
+        tec_id = self.tecnico.id
+        nombre = self.ui.line_update_tecnico_nombre.text().lower()
+        especialidad = self.ui.combo_update_tecnico_especialidad.currentText().lower()
+        try:
+            self.api.actualizar_tecnico(tecnico_id=tec_id, tecnico=TecnicoCreate(nombre=nombre,especialidad=especialidad))
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.check_actualizacion_tecnico()
         self.rellenar_tabla_tecnicos()
 
     # - ACTUALIZACION DE REPARACION
-    def check_actualizacion_reparacion(self):
+    def check_actualizacion_reparacion(self): #TODO revisar entero
         condicion = (
-            self.ui.line_update_reparacion_cliente.property("UUID") != self.taller.reparaciones[self.id_reparacion].cliente or
-            self.ui.line_update_reparacion_tecnico.property("UUID") != self.taller.reparaciones[self.id_reparacion].tecnico or
-            self.ui.combo_update_reparacion_estado.currentText().lower() != self.taller.reparaciones[self.id_reparacion].estado or
-            (self.ui.line_update_reparacion_equipo.text() != self.taller.reparaciones[self.id_reparacion].equipo and self.ui.line_update_reparacion_equipo.text() != "") or
-            (self.ui.line_update_reparacion_descripcion.text() != self.taller.reparaciones[self.id_reparacion].descripcion and self.ui.line_update_reparacion_descripcion.text() != "") or
-            (self.ui.line_update_reparacion_coste.text() != str(self.taller.reparaciones[self.id_reparacion].coste) and self.ui.line_update_reparacion_coste.text() != "")        )
+            self.ui.line_update_reparacion_cliente.property("UUID") != self.reparacion.cliente or
+            self.ui.line_update_reparacion_tecnico.property("UUID") != self.reparacion.tecnico or
+            self.ui.combo_update_reparacion_estado.currentText().lower() != self.reparacion.estado or
+            (self.ui.line_update_reparacion_equipo.text() != self.reparacion.equipo and self.ui.line_update_reparacion_equipo.text() != "") or
+            (self.ui.line_update_reparacion_descripcion.text() != self.reparacion.descripcion and self.ui.line_update_reparacion_descripcion.text() != "") or
+            (self.ui.line_update_reparacion_coste.text() != str(self.reparacion.coste) and self.ui.line_update_reparacion_coste.text() != "")        )
         self.ui.but_update_reparacion_actualizar.setEnabled(condicion)
     def actualizar_reparacion(self):
-        reparacion = self.taller.reparaciones[self.id_reparacion]
-        reparacion.cliente = self.ui.line_update_reparacion_cliente.property("UUID")
-        reparacion.tecnico = self.ui.line_update_reparacion_tecnico.property("UUID")
-        reparacion.estado = self.ui.combo_update_reparacion_estado.currentText().lower()
-        reparacion.equipo = self.ui.line_update_reparacion_equipo.text().strip()
-        reparacion.descripcion = self.ui.line_update_reparacion_descripcion.text().strip()
-        reparacion.coste = float(self.ui.line_update_reparacion_coste.text().strip())
+        rep_id = self.reparacion.id
+        cliente = self.ui.line_update_reparacion_cliente.property("UUID")
+        tecnico = self.ui.line_update_reparacion_tecnico.property("UUID")
+        estado = self.ui.combo_update_reparacion_estado.currentText().lower()
+        equipo = self.ui.line_update_reparacion_equipo.text().strip()
+        descripcion = self.ui.line_update_reparacion_descripcion.text().strip()
+        coste = float(self.ui.line_update_reparacion_coste.text().strip())
+        try:
+            self.api.actualizar_reparacion(reparacion_id=rep_id, reparacion=ReparacionCreate(cliente=cliente, tecnico=tecnico, equipo=equipo, descripcion=descripcion, coste=coste, estado=estado))
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.check_actualizacion_reparacion()
         self.rellenar_tabla_reparaciones()
 
@@ -521,7 +547,10 @@ class MiVentanaPrincipal(QMainWindow):
         respuesta = self.confirmar_eliminacion()
         if respuesta == QMessageBox.StandardButton.Cancel:
             return
-        self.taller.clientes.pop(self.id_cliente)
+        try:
+            self.api.borrar_cliente(self.cliente.id)
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_clientes()
         self.actualizar_titulo(self.ventana_actual)
@@ -533,7 +562,10 @@ class MiVentanaPrincipal(QMainWindow):
         respuesta = self.confirmar_eliminacion()
         if respuesta == QMessageBox.StandardButton.Cancel:
             return
-        self.taller.tecnicos.pop(self.id_tecnico)
+        try:
+            self.api.borrar_tecnico(self.tecnico.id)
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_tecnicos()
         self.actualizar_titulo(self.ventana_actual)
@@ -545,7 +577,10 @@ class MiVentanaPrincipal(QMainWindow):
         respuesta = self.confirmar_eliminacion()
         if respuesta == QMessageBox.StandardButton.Cancel:
             return
-        self.taller.reparaciones.pop(self.id_reparacion)
+        try:
+            self.api.borrar_reparacion(self.reparacion.id)
+        except ErrorAPI as e:
+            warning_box(self, str(e))
         self.limpiar_ventana(self.ventana_actual)
         self.rellenar_tabla_reparaciones()
         self.actualizar_titulo(self.ventana_actual)
@@ -554,18 +589,26 @@ class MiVentanaPrincipal(QMainWindow):
     # -- FUNCION ENCARGADA DE PONER LA VENTANA DE ESTADISTICAS Y COMPLETAR LOS CAMPOS
     def estadisticas(self):
         #Parte registrados
-        self.ui.line_estad_client_regist.setText(str(len(self.taller.clientes)))
-        self.ui.line_estad_tecn_regist.setText(str(len(self.taller.tecnicos)))
-        self.ui.line_estad_rep_registradas.setText(str(len(self.taller.reparaciones)))
+        self.ui.line_estad_client_regist.setText(str(len(self.clientes)))
+        self.ui.line_estad_tecn_regist.setText(str(len(self.tecnicos)))
+        self.ui.line_estad_rep_registradas.setText(str(len(self.reparaciones)))
         #Parte estados
-        self.ui.line_estad_rep_pendientes.setText(str(len([reparacion for reparacion in self.taller.reparaciones.values() if reparacion.estado == "pendiente"])))
-        self.ui.line_estad_rep_en_proceso.setText(str(len([reparacion for reparacion in self.taller.reparaciones.values() if reparacion.estado == "en proceso"])))
-        self.ui.line_estad_rep_finalizadas.setText(str(len([reparacion for reparacion in self.taller.reparaciones.values() if reparacion.estado == "finalizada"])))
+        self.ui.line_estad_rep_pendientes.setText(str(len([reparacion for reparacion in self.reparaciones.values() if reparacion.estado == "pendiente"])))
+        self.ui.line_estad_rep_en_proceso.setText(str(len([reparacion for reparacion in self.reparaciones.values() if reparacion.estado == "en proceso"])))
+        self.ui.line_estad_rep_finalizadas.setText(str(len([reparacion for reparacion in self.reparaciones.values() if reparacion.estado == "finalizada"])))
         #Para facturacion
-        self.ui.line_estad_rep_ganancias.setText(f'{sum([reparacion.get_with_iva() for reparacion in self.taller.reparaciones.values() if reparacion.estado == "finalizada"]):.2f} €')
+        self.ui.line_estad_rep_ganancias.setText(f'{sum([reparacion.get_with_iva() for reparacion in self.reparaciones.values() if reparacion.estado == "finalizada"]):.2f} €')
 
         self.establecer_ventana('page_estadisticas',self.ventana_actual)
 
+    # - PERSISTENCIA -
+    def importar(self): #TODO pendiente de implementar
+        pass
+
+    def exportar(self): #TODO pendiente de implementar
+        pass
+
+    """ Igual se reutiliza, pero en deshuso actual
     # -- FUNCIONES DE PERSISTENCIA
     def dialogo_confirmacion_no_guardado(self) -> QMessageBox.StandardButton:
         return QMessageBox.question(
@@ -627,7 +670,7 @@ class MiVentanaPrincipal(QMainWindow):
                 event.accept()
             else:
                 event.ignore()
-
+    """
     # -- FUNCIONES AGRUPACION CONEXIONES
     # - CONEXIONES DE LAS ACCIONES
     def conectar_acciones(self):
@@ -645,14 +688,15 @@ class MiVentanaPrincipal(QMainWindow):
         self.ui.action_consultar_Modificar_tecnico.triggered.connect(lambda: self.establecer_ventana("page_actualizacion_tecnico",self.ventana_actual))
         self.ui.action_consultar_Modificar_reparacion.triggered.connect(lambda: self.establecer_ventana("page_actualizacion_reparacion",self.ventana_actual))
         #Persistencia
+        """
         self.ui.action_guardar.triggered.connect(self.guardar)
         self.ui.action_abrir_tienda.triggered.connect(self.abrir)
+        """
+        self.ui.action_import.triggered.connect(self.importar)
+        self.ui.action_export.triggered.connect(self.exportar)
         self.ui.action_salir.triggered.connect(self.close) #Utilizo el propio evento de salir
         #Estadisticas
         self.ui.action_estadisticas.triggered.connect(self.estadisticas)
-
-        # -- PERSISTENCIA
-        self.ui.action_guardar.triggered.connect(self.guardar)
     # - CONEXIONES DE LOS FILTROS
     def conectar_filtros(self) -> None:
         """
