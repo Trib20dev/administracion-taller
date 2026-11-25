@@ -161,31 +161,32 @@ class MiVentanaPrincipal(QMainWindow):
 
     #   RELLENAR TABLA ÚNICA
 
-    def rellenar_tabla_clientes(self):
+    def rellenar_tabla_clientes(self, filtro: bool = False):
         nombre = self.ui.line_filter_cliente_nombre.text().strip().lower()
         model = self.ui.table_clientes.model()
         model.removeRows(0, model.rowCount())
 
-        self.clientes = self.api.listar_clientes_dict()
+        if not filtro:
+            self.clientes = self.api.listar_clientes_dict()
 
         for cliente in self.clientes.values():
             if nombre == "" or nombre.lower() in cliente.nombre:
                 self.rellenar_fila_cliente(cliente)
 
-    def rellenar_tabla_tecnicos(self):
+    def rellenar_tabla_tecnicos(self, filtro: bool = False):
         nombre = self.ui.line_filter_tecnico_nombre.text().strip().lower()
         especialidad = self.ui.combo_filter_tecnico_especialidad.currentText().lower()
         model = self.ui.table_tecnicos.model()
         model.removeRows(0, model.rowCount())
-
-        self.tecnicos = self.api.listar_tecnicos_dict()
+        if not filtro:
+            self.tecnicos = self.api.listar_tecnicos_dict()
 
         for tecnico in self.tecnicos.values():
             if (nombre == "" or nombre.lower() in tecnico.nombre) and \
                     (especialidad == "*" or tecnico.especialidad == especialidad.lower()):
                 self.rellenar_fila_tecnico(tecnico)
 
-    def rellenar_tabla_reparaciones(self):
+    def rellenar_tabla_reparaciones(self, filtro: bool = False):
         filtro_cliente = self.ui.line_filter_reparacion_cliente.text().strip().lower()
         filtro_tecnico = self.ui.line_filter_reparacion_tecnico.text().strip().lower()
         filtro_estado = self.ui.combo_filter_reparacion_estado.currentText().lower()
@@ -193,10 +194,11 @@ class MiVentanaPrincipal(QMainWindow):
         model = self.ui.table_reparacion.model()
         model.removeRows(0, model.rowCount())
 
-        # Redescarga de los datos
-        self.clientes = self.api.listar_clientes_dict()
-        self.tecnicos = self.api.listar_tecnicos_dict()
-        self.reparaciones = self.api.listar_reparaciones_dict()
+        # Redescarga de los datos -> Se considera excesivo
+        if not filtro:
+            self.clientes = self.api.listar_clientes_dict()
+            self.tecnicos = self.api.listar_tecnicos_dict()
+            self.reparaciones = self.api.listar_reparaciones_dict()
 
         # Lógica ordenacion compacta
 
@@ -703,15 +705,15 @@ class MiVentanaPrincipal(QMainWindow):
         Conecta los filtros a los campos encargados de ello
         """
         #Filtro clientes
-        self.ui.line_filter_cliente_nombre.textChanged.connect(self.rellenar_tabla_clientes)
+        self.ui.line_filter_cliente_nombre.textChanged.connect(self.rellenar_tabla_clientes,True)
         #Filtro tecnicos
-        self.ui.line_filter_tecnico_nombre.textChanged.connect(self.rellenar_tabla_tecnicos)
-        self.ui.combo_filter_tecnico_especialidad.currentTextChanged.connect(self.rellenar_tabla_tecnicos)
+        self.ui.line_filter_tecnico_nombre.textChanged.connect(self.rellenar_tabla_tecnicos,True)
+        self.ui.combo_filter_tecnico_especialidad.currentTextChanged.connect(self.rellenar_tabla_tecnicos, True)
         #Filtro reparacion
-        self.ui.line_filter_reparacion_cliente.textChanged.connect(self.rellenar_tabla_reparaciones)
-        self.ui.line_filter_reparacion_tecnico.textChanged.connect(self.rellenar_tabla_reparaciones)
-        self.ui.combo_filter_reparacion_estado.currentTextChanged.connect(self.rellenar_tabla_reparaciones)
-        self.ui.combo_filter_reparacion_orden.currentTextChanged.connect(self.rellenar_tabla_reparaciones)
+        self.ui.line_filter_reparacion_cliente.textChanged.connect(self.rellenar_tabla_reparaciones, True)
+        self.ui.line_filter_reparacion_tecnico.textChanged.connect(self.rellenar_tabla_reparaciones, True)
+        self.ui.combo_filter_reparacion_estado.currentTextChanged.connect(self.rellenar_tabla_reparaciones, True)
+        self.ui.combo_filter_reparacion_orden.currentTextChanged.connect(self.rellenar_tabla_reparaciones, True)
         self.ui.but_filter_reparacion_direccion.clicked.connect(self.alterar_direccion)
     # - CONEXIONES DE CREACION
     def conectar_creacion(self):
